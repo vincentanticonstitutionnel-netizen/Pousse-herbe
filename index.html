@@ -86,7 +86,7 @@ h1 { font-size: 18px; font-weight: 500; margin-bottom: 4px; }
 <body>
 
 <h1 id="page-title">Sommes de températures prairie</h1>
-<p class="subtitle" id="subtitle">Méthode INRA Toulouse / Idele · base 0°C / plafond 18°C · cumul depuis le 01/02</p>
+<p class="subtitle" id="subtitle">Méthode Idele · base 0°C / plafond 18°C · cumul depuis le 01/02</p>
 
 <div id="error-box"></div>
 
@@ -112,7 +112,7 @@ h1 { font-size: 18px; font-weight: 500; margin-bottom: 4px; }
 </div>
 
 <div class="methodbox">
-  <strong>Méthode INRA Toulouse (fiche Idele 2016) :</strong>
+  <strong>Méthode  Idele  :</strong>
   DJ = min(max((Tmax+Tmin)/2, 0°C), 18°C) · cumul à partir du <strong>1er février</strong> ·
   Les seuils de stades varient selon le type de prairie — sélectionnez ci-dessous.
 </div>
@@ -176,7 +176,7 @@ h1 { font-size: 18px; font-weight: 500; margin-bottom: 4px; }
 
 <div class="footer" id="status-msg"></div>
 <div class="footer" style="margin-top:2px">
-  Formule INRA/Idele 2016 : DJ = min(max(Tmoy, 0), 18) ·
+  Formule Idele : DJ = min(max(Tmoy, 0), 18) ·
   Météo : <a href="https://open-meteo.com" target="_blank" style="color:#185fa5">Open-Meteo Historical Forecast API</a> ·
   Géocodage : <a href="https://nominatim.openstreetmap.org" target="_blank" style="color:#185fa5">Nominatim / OpenStreetMap</a>
 </div>
@@ -333,7 +333,7 @@ async function loadAndRender(lat, lon, label) {
 
   const fmtFR = d => new Date(d).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'});
   document.getElementById('subtitle').textContent =
-    `Méthode INRA Toulouse / Idele 2016 · base 0°C / plafond 18°C · cumul depuis le 01/02/${year} · mis à jour le ${fmtFR(toISO(today))}`;
+    `Méthode  Idele  · base 0°C / plafond 18°C · cumul depuis le 01/02/${year} · mis à jour le ${fmtFR(toISO(today))}`;
   document.getElementById('card-depuis').textContent = `depuis le 01/02/${year}`;
 
   // Appel météo + station en parallèle
