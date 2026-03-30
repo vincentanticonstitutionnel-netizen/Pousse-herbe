@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Sommes de températures prairie / Grass Temperature Sums</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, -apple-system, sans-serif; background: #f5f5f0; color: #2c2c2a; padding: 1.5rem; max-width: 980px; margin: 0 auto; }
+.top-bar { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; margin-bottom:4px; }
+h1 { font-size: 18px; font-weight: 500; }
+.subtitle { font-size: 13px; color: #5f5e5a; margin-bottom: 1.25rem; }
+.lang-switcher { display:flex; gap:4px; flex-shrink:0; margin-top:2px; }
+.lang-btn { padding:4px 10px; border:0.5px solid #d3d1c7; border-radius:5px; font-size:12px; cursor:pointer; background:#f5f5f0; color:#5f5e5a; font-family:inherit; transition:background 0.1s; }
+.lang-btn:hover { background:#e8e6de; }
+.lang-btn.active { background:#2c2c2a; border-color:#2c2c2a; color:#fff; }
+.loc-block { background:#fff; border:0.5px solid #d3d1c7; border-radius:8px; padding:1rem 1.25rem; margin-bottom:1.25rem; }
+.loc-label { font-size:13px; font-weight:500; display:block; margin-bottom:8px; color:#3d3d3a; }
+.loc-row { display:flex; gap:1.5rem; align-items:flex-start; flex-wrap:wrap; }
+.loc-search-col { flex:1; min-width:220px; }
+.loc-search-wrap { display:flex; gap:8px; }
+.loc-search-wrap input { flex:1; min-width:0; padding:7px 10px; border:0.5px solid #d3d1c7; border-radius:6px; font-size:13px; font-family:inherit; background:#f5f5f0; color:#2c2c2a; outline:none; }
+.loc-search-wrap input:focus { border-color:#1D9E75; background:#fff; }
+.loc-search-wrap button { padding:7px 16px; background:#1D9E75; border:none; border-radius:6px; color:#fff; font-size:13px; font-family:inherit; cursor:pointer; white-space:nowrap; }
+.loc-search-wrap button:hover { background:#0f6e56; }
+.loc-search-wrap button:disabled { background:#b4b2a9; cursor:default; }
+#loc-suggestions { margin-top:6px; border:0.5px solid #d3d1c7; border-radius:6px; overflow:hidden; display:none; }
+.loc-sug-item { padding:8px 12px; font-size:12px; cursor:pointer; border-bottom:0.5px solid #eee; color:#2c2c2a; }
+.loc-sug-item:last-child { border-bottom:none; }
+.loc-sug-item:hover { background:#e8e6de; }
+.loc-info-col { border-left:0.5px solid #d3d1c7; padding-left:1.25rem; min-width:240px; }
+.loc-info-line { font-size:12px; color:#5f5e5a; line-height:1.5; }
+.loc-info-line.strong { font-size:13px; font-weight:500; color:#2c2c2a; }
+.loc-loading { font-size:12px; color:#888; font-style:italic; margin-top:4px; }
+.methodbox { background:#f0ede4; border-left:3px solid #BA7517; border-radius:4px; padding:9px 14px; margin-bottom:1.25rem; font-size:12px; color:#5f5e5a; line-height:1.6; }
+.prairie-selector { background:#fff; border:0.5px solid #d3d1c7; border-radius:8px; padding:1rem 1.25rem; margin-bottom:1.25rem; }
+.prairie-selector > label { font-size:13px; font-weight:500; display:block; margin-bottom:10px; color:#3d3d3a; }
+.prairie-tabs { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+.prairie-tab { border:0.5px solid #d3d1c7; border-radius:6px; padding:8px 10px; cursor:pointer; font-size:12px; text-align:center; background:#f5f5f0; line-height:1.4; color:#5f5e5a; transition:background 0.12s,border-color 0.12s; }
+.prairie-tab:hover { background:#e8e6de; border-color:#b4b2a9; }
+.prairie-tab.active { background:#1D9E75; border-color:#0f6e56; color:#fff; font-weight:500; }
+.prairie-tab .ex { font-size:11px; opacity:0.75; margin-top:3px; }
+.cards { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:1.25rem; }
+.card { background:#e8e6de; border-radius:8px; padding:0.85rem 1rem; text-align:center; }
+.card-label { font-size:11px; color:#5f5e5a; margin-bottom:4px; line-height:1.3; }
+.card-value { font-size:22px; font-weight:500; line-height:1.2; }
+.card-sub { font-size:11px; color:#5f5e5a; margin-top:2px; }
+.chart-block { background:#fff; border:0.5px solid #d3d1c7; border-radius:8px; padding:1rem; margin-bottom:1rem; }
+.chart-title { font-size:13px; font-weight:500; margin-bottom:0.75rem; color:#3d3d3a; }
+.chart-wrap { position:relative; width:100%; }
+.legend { display:flex; flex-wrap:wrap; gap:10px; margin-top:8px; font-size:11px; color:#5f5e5a; }
+.legend span { display:flex; align-items:center; gap:4px; }
+.seuils-table { border:0.5px solid #d3d1c7; border-radius:8px; overflow:hidden; margin-bottom:1rem; }
+.seuils-header { font-size:13px; font-weight:500; padding:10px 14px; background:#e8e6de; border-bottom:0.5px solid #d3d1c7; }
+.seuil-row { display:grid; grid-template-columns:1fr auto; align-items:center; padding:9px 14px; border-bottom:0.5px solid #d3d1c7; gap:8px; }
+.seuil-row:last-child { border-bottom:none; }
+.data-table { border:0.5px solid #d3d1c7; border-radius:8px; overflow:hidden; margin-bottom:1rem; }
+.table-header { display:grid; grid-template-columns:80px 62px 62px 52px 52px 65px 65px; font-size:11px; font-weight:500; color:#5f5e5a; padding:7px 12px; background:#e8e6de; border-bottom:0.5px solid #d3d1c7; }
+.table-body { max-height:280px; overflow-y:auto; font-size:11px; }
+.table-row { display:grid; grid-template-columns:80px 62px 62px 52px 52px 65px 65px; padding:5px 12px; border-bottom:0.5px solid #eee; }
+.table-row:nth-child(odd)  { background:#fff; }
+.table-row:nth-child(even) { background:#f9f9f6; }
+.ta-r { text-align:right; }
+.badge { font-size:11px; padding:2px 8px; border-radius:4px; white-space:nowrap; display:inline-block; }
+.badge-ok   { background:#eaf3de; color:#3b6d11; }
+.badge-wait { background:#e8e6de; color:#5f5e5a; }
+.col-ok    { color:#3b6d11; }
+.col-muted { color:#888780; }
+.col-blue  { color:#185fa5; }
+.footer { font-size:11px; color:#888780; margin-top:4px; }
+#error-box { display:none; background:#fcebeb; border:0.5px solid #f09595; border-radius:8px; padding:12px 16px; color:#791f1f; font-size:13px; margin-bottom:1rem; }
+@keyframes spin { to { transform:rotate(360deg); } }
+</style>
+<script defer src="https://cloud.umami.is/script.js" data-website-id="04b75b60-5068-47a8-9182-b3a3840f6f89"></script>
+</head>
+<body>
+
+<div class="top-bar">
+  <div>
+    <h1 id="page-title">Sommes de températures prairie</h1>
+    <p class="subtitle" id="subtitle">Méthode Idele · base 0°C / plafond 18°C · cumul depuis le 01/02</p>
+  </div>
+  <div class="lang-switcher">
+    <button class="lang-btn active" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" onclick="setLang('en')">EN</button>
+  </div>
+</div>
+
+<div id="error-box"></div>
+
+<div class="loc-block">
+  <label class="loc-label" id="lbl-location">Localisation</label>
+  <div class="loc-row">
+    <div class="loc-search-col">
+      <div class="loc-search-wrap">
+        <input type="text" id="loc-input" placeholder="Commune, adresse, code postal…" value="Auzas 31360"
+               onkeydown="if(event.key==='Enter') searchLocation()" />
+        <button id="loc-btn" onclick="searchLocation()">Rechercher</button>
+      </div>
+      <div id="loc-suggestions"></div>
+      <div id="loc-loading" class="loc-loading" style="display:none">Recherche en cours…</div>
+    </div>
+    <div class="loc-info-col">
+      <div class="loc-info-line strong" id="loc-name">Auzas (31360)</div>
+      <div class="loc-info-line" id="loc-coords">43.3833°N, 0.9833°E</div>
+      <div class="loc-info-line" id="loc-station" style="margin-top:6px;padding-top:6px;border-top:0.5px solid #e8e6de">—</div>
+    </div>
+  </div>
+</div>
+
+<div class="methodbox" id="methodbox">
+  <strong>Méthode Idele 2016 :</strong>
+  DJ = (Tmax + Tmin) / 2, avec min 0°C et max 18°C · cumul à partir du <strong>1er février</strong> ·
+  Les seuils de stades varient selon le type de prairie — sélectionnez ci-dessous.
+</div>
+
+<div class="prairie-selector">
+  <label id="lbl-prairie-type">Type de prairie</label>
+  <div class="prairie-tabs" id="prairie-tabs">
+    <div class="prairie-tab" data-idx="0" onclick="selectPrairie(0)">
+      <span class="tab-name">Temporaires fertiles et précoces</span><div class="ex">ex : ray-grass</div>
+    </div>
+    <div class="prairie-tab active" data-idx="1" onclick="selectPrairie(1)">
+      <span class="tab-name">Permanentes fertiles et précoces</span><div class="ex">ex : dactyle, fétuque élevée</div>
+    </div>
+    <div class="prairie-tab" data-idx="2" onclick="selectPrairie(2)">
+      <span class="tab-name">Permanentes fertilité moyenne</span><div class="ex">ex : fétuque rouge</div>
+    </div>
+    <div class="prairie-tab" data-idx="3" onclick="selectPrairie(3)">
+      <span class="tab-name">Permanentes peu fertiles</span><div class="ex">ex : brachypode</div>
+    </div>
+  </div>
+</div>
+
+<div class="cards">
+  <div class="card"><div class="card-label" id="lbl-cumul-dj">Cumul DJ (base 0 / plaf. 18°C)</div><div class="card-value" id="total-dj">—</div><div class="card-sub" id="card-depuis">—</div></div>
+  <div class="card"><div class="card-label" id="lbl-stade">Stade actuel</div><div class="card-value" style="font-size:13px;line-height:1.35" id="stade-actuel">—</div></div>
+  <div class="card"><div class="card-label" id="lbl-prochain">Prochain seuil</div><div class="card-value" style="font-size:13px;line-height:1.35" id="prochain-seuil">—</div></div>
+  <div class="card"><div class="card-label" id="lbl-precip">Précip. cumulées (depuis 01/01)</div><div class="card-value" id="total-pluie">—</div><div class="card-sub" id="pluie-7j">—</div></div>
+</div>
+
+<div class="chart-block">
+  <div class="chart-title" id="chart-dj-title">Cumul des degrés-jours et seuils</div>
+  <div class="chart-wrap" style="height:290px"><canvas id="chartDJ"></canvas></div>
+  <div class="legend" id="legend-dj"></div>
+</div>
+
+<div class="chart-block">
+  <div class="chart-title" id="chart-rain-title">Précipitations journalières (mm)</div>
+  <div class="chart-wrap" style="height:180px"><canvas id="chartPluie"></canvas></div>
+  <div class="legend">
+    <span><span style="width:10px;height:10px;border-radius:2px;background:rgba(24,95,165,0.5);display:inline-block"></span><span id="lbl-rain-bars">Précipitations mm/j</span></span>
+    <span><span style="width:22px;height:2px;background:#185FA5;display:inline-block"></span><span id="lbl-rain-cum">Cumul précip. mm</span></span>
+  </div>
+</div>
+
+<div class="seuils-table">
+  <div class="seuils-header" id="seuils-header">Seuils Idele 2016 — stades prairie</div>
+  <div id="seuils-rows"><div style="padding:14px;color:#888;text-align:center;font-size:13px">Chargement…</div></div>
+</div>
+
+<div class="data-table">
+  <div class="table-header" id="table-header">
+    <span>Date</span><span class="ta-r">Tmax °C</span><span class="ta-r">Tmin °C</span>
+    <span class="ta-r">Tmoy</span><span class="ta-r">DJ/j</span>
+    <span class="ta-r">Cumul DJ</span><span class="ta-r" id="lbl-rain-col">Pluie mm</span>
+  </div>
+  <div class="table-body" id="table-body">
+    <div style="padding:14px;color:#888;text-align:center;font-size:13px">Chargement…</div>
+  </div>
+</div>
+
+<div class="footer" id="status-msg"></div>
+<div class="footer" style="margin-top:2px">
+  <span id="lbl-formula">Formule Idele 2016 : DJ = (Tmax + Tmin) / 2, avec min 0°C et max 18°C</span> ·
+  <span id="lbl-meteo">Météo</span> : <a href="https://open-meteo.com" target="_blank" style="color:#185fa5">Open-Meteo Historical Forecast API</a> ·
+  <span id="lbl-geocoding">Géocodage</span> : <a href="https://nominatim.openstreetmap.org" target="_blank" style="color:#185fa5">Nominatim / OpenStreetMap</a>
+</div>
+<div class="footer" style="margin-top:8px;padding-top:8px;border-top:0.5px solid #d3d1c7;">
+  <a rel="license" href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" style="color:#185fa5;text-decoration:none">
+    <img src="https://licensebuttons.net/l/by-sa/4.0/80x15.png" alt="CC BY-SA 4.0" style="vertical-align:middle;margin-right:6px">
+  </a>
+  <em>Pousse de l'herbe</em> © 2026 Vincent Del Duca —
+  <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" style="color:#185fa5">CC BY-SA 4.0</a>
+</div>
+
+<script>
+// ---- Traductions ----
+const T = {
+  fr: {
+    title:          "Sommes de températures prairie",
+    subtitle:       (y,d) => `Méthode Idele 2016 · base 0°C / plafond 18°C · cumul depuis le 01/02/${y} · mis à jour le ${d}`,
+    location:       "Localisation",
+    search:         "Rechercher",
+    searching:      "Recherche en cours…",
+    noResult:       "Aucun résultat trouvé",
+    geoError:       "Erreur de géocodage : ",
+    methodbox:      `<strong>Méthode Idele 2016 :</strong> DJ = (Tmax + Tmin) / 2, avec min 0°C et max 18°C · cumul à partir du <strong>1er février</strong> · Les seuils de stades varient selon le type de prairie — sélectionnez ci-dessous.`,
+    prairietype:    "Type de prairie",
+    tabs:           [
+      {name:"Temporaires fertiles et précoces", ex:"ex : ray-grass"},
+      {name:"Permanentes fertiles et précoces", ex:"ex : dactyle, fétuque élevée"},
+      {name:"Permanentes fertilité moyenne",    ex:"ex : fétuque rouge"},
+      {name:"Permanentes peu fertiles",         ex:"ex : brachypode"},
+    ],
+    cumulDJ:        "Cumul DJ (base 0 / plaf. 18°C)",
+    since:          (y) => `depuis le 01/02/${y}`,
+    stade:          "Stade actuel",
+    nextThreshold:  "Prochain seuil",
+    precip:         "Précip. cumulées (depuis 01/01)",
+    last7:          (v) => `7 derniers jours : ${v} mm`,
+    below:          "En dessous du\nseuil de démarrage",
+    allDone:        "Tous les stades atteints",
+    in:             (v) => `dans ${v} °C·j`,
+    chartDJ:        "Cumul des degrés-jours et seuils",
+    chartRain:      "Précipitations journalières (mm)",
+    rainBars:       "Précipitations mm/j",
+    rainCum:        "Cumul précip. mm",
+    seuilsHeader:   (court, y) => `Seuils Idele 2016 — ${court} (base 0°C / plafond 18°C, depuis le 01/02/${y})`,
+    reached:        "✓ atteint",
+    remaining:      (v) => `${v} °C·j restants`,
+    dateCol:        "Date",
+    rainCol:        "Pluie mm",
+    loading:        "Chargement…",
+    netError:       "Erreur réseau : ",
+    unavailable:    "Données indisponibles",
+    statusMsg:      (sf, ed, sc, n) => `Données ${sf} → ${ed} · cumul depuis ${sc} · Open-Meteo Historical Forecast · ${n} jours`,
+    coordLabel:     (lat,lon) => `Coordonnées interpolées : ${lat}°N, ${lon}°E`,
+    stationLabel:   (elev) => `<strong>Source météo :</strong> Open-Meteo Historical Forecast<br>Modèle : ERA5 + analyse NWP (résolution ~1 km)<br>Altitude point de grille : ${elev} m`,
+    meteoLoading:   "Chargement des données météo…",
+    formula:        "Formule Idele 2016 : DJ = (Tmax + Tmin) / 2, avec min 0°C et max 18°C",
+    meteoWord:      "Météo",
+    geocodingWord:  "Géocodage",
+    djLeg:          "DJ journalier",
+    cumLeg:         "Cumul DJ",
+    pluieTip:       (v) => `Pluie : ${v} mm`,
+    cumTip:         (v) => `Cumul : ${v} mm`,
+    djTip:          (label, v) => `${label} : ${v} °C·j`,
+    seuils: [
+      [{stade:"Départ en végétation",pratique:"Mise à l'herbe des animaux"},{stade:"Épi à 5 cm du sol",pratique:"Fin du déprimage — fin du 1er tour de pâturage"},{stade:"Début épiaison",pratique:"Ensilage / enrubannage / séchage"},{stade:"Pleine épiaison",pratique:"Foin précoce"},{stade:"Pleine floraison",pratique:"Foin tardif — valeur alimentaire en forte baisse"}],
+      [{stade:"Départ en végétation",pratique:"Mise à l'herbe des animaux"},{stade:"Épi à 5 cm du sol",pratique:"Fin du déprimage — fin du 1er tour de pâturage"},{stade:"Début épiaison",pratique:"Ensilage / enrubannage / séchage"},{stade:"Pleine épiaison",pratique:"Foin précoce"},{stade:"Pleine floraison",pratique:"Foin tardif — valeur alimentaire en forte baisse"}],
+      [{stade:"Départ en végétation",pratique:"Mise à l'herbe des animaux"},{stade:"Épi à 5 cm du sol",pratique:"Fin du déprimage — fin du 1er tour de pâturage"},{stade:"Début épiaison",pratique:"Ensilage / enrubannage / séchage"},{stade:"Pleine épiaison",pratique:"Foin précoce"},{stade:"Pleine floraison",pratique:"Foin tardif — valeur alimentaire en forte baisse"}],
+      [{stade:"Départ en végétation",pratique:"Mise à l'herbe des animaux"},{stade:"Épi à 5 cm du sol",pratique:"Fin du déprimage — fin du 1er tour de pâturage"}],
+    ],
+  },
+  en: {
+    title:          "Grass Temperature Sums",
+    subtitle:       (y,d) => `Idele 2016 method · base 0°C / ceiling 18°C · cumul from 01/02/${y} · updated ${d}`,
+    location:       "Location",
+    search:         "Search",
+    searching:      "Searching…",
+    noResult:       "No results found",
+    geoError:       "Geocoding error: ",
+    methodbox:      `<strong>Idele 2016 method:</strong> GDD = (Tmax + Tmin) / 2, min 0°C and max 18°C · accumulated from <strong>1st February</strong> · Thresholds vary by grassland type — select below.`,
+    prairietype:    "Grassland type",
+    tabs:           [
+      {name:"Fertile early temporary grasslands", ex:"e.g. ryegrass"},
+      {name:"Fertile early permanent grasslands",  ex:"e.g. cocksfoot, tall fescue"},
+      {name:"Medium fertility permanent grasslands",ex:"e.g. red fescue"},
+      {name:"Low fertility permanent grasslands",  ex:"e.g. brachypodium"},
+    ],
+    cumulDJ:        "Cumul GDD (base 0 / ceil. 18°C)",
+    since:          (y) => `since 01/02/${y}`,
+    stade:          "Current stage",
+    nextThreshold:  "Next threshold",
+    precip:         "Cumul. rainfall (since 01/01)",
+    last7:          (v) => `Last 7 days: ${v} mm`,
+    below:          "Below the\nstart threshold",
+    allDone:        "All stages reached",
+    in:             (v) => `in ${v} °C·d`,
+    chartDJ:        "Cumulative growing degree days and thresholds",
+    chartRain:      "Daily rainfall (mm)",
+    rainBars:       "Rainfall mm/d",
+    rainCum:        "Cumul. rainfall mm",
+    seuilsHeader:   (court, y) => `Idele 2016 thresholds — ${court} (base 0°C / ceiling 18°C, from 01/02/${y})`,
+    reached:        "✓ reached",
+    remaining:      (v) => `${v} °C·d remaining`,
+    dateCol:        "Date",
+    rainCol:        "Rain mm",
+    loading:        "Loading…",
+    netError:       "Network error: ",
+    unavailable:    "Data unavailable",
+    statusMsg:      (sf, ed, sc, n) => `Data ${sf} → ${ed} · cumul from ${sc} · Open-Meteo Historical Forecast · ${n} days`,
+    coordLabel:     (lat,lon) => `Interpolated coordinates: ${lat}°N, ${lon}°E`,
+    stationLabel:   (elev) => `<strong>Weather source:</strong> Open-Meteo Historical Forecast<br>Model: ERA5 + NWP analysis (~1 km resolution)<br>Grid point elevation: ${elev} m`,
+    meteoLoading:   "Loading weather data…",
+    formula:        "Idele 2016 formula: GDD = (Tmax + Tmin) / 2, min 0°C and max 18°C",
+    meteoWord:      "Weather",
+    geocodingWord:  "Geocoding",
+    djLeg:          "Daily GDD",
+    cumLeg:         "Cumul. GDD",
+    pluieTip:       (v) => `Rain: ${v} mm`,
+    cumTip:         (v) => `Cumul: ${v} mm`,
+    djTip:          (label, v) => `${label}: ${v} °C·d`,
+    seuils: [
+      [{stade:"Vegetation start",pratique:"Turn out livestock"},{stade:"Ear at 5 cm",pratique:"End of grazing rotation 1"},{stade:"Heading start",pratique:"Silage / baleage / wilting"},{stade:"Full heading",pratique:"Early hay"},{stade:"Full flowering",pratique:"Late hay — feed value declining sharply"}],
+      [{stade:"Vegetation start",pratique:"Turn out livestock"},{stade:"Ear at 5 cm",pratique:"End of grazing rotation 1"},{stade:"Heading start",pratique:"Silage / baleage / wilting"},{stade:"Full heading",pratique:"Early hay"},{stade:"Full flowering",pratique:"Late hay — feed value declining sharply"}],
+      [{stade:"Vegetation start",pratique:"Turn out livestock"},{stade:"Ear at 5 cm",pratique:"End of grazing rotation 1"},{stade:"Heading start",pratique:"Silage / baleage / wilting"},{stade:"Full heading",pratique:"Early hay"},{stade:"Full flowering",pratique:"Late hay — feed value declining sharply"}],
+      [{stade:"Vegetation start",pratique:"Turn out livestock"},{stade:"Ear at 5 cm",pratique:"End of grazing rotation 1"}],
+    ],
+  }
+};
+
+// ---- Seuils (valeurs en °C·j, indépendantes de la langue) ----
+const SEUIL_VALUES = [
+  [250, 500, 800,  1000, 1200],
+  [300, 500, 900,  1100, 1300],
+  [400, 800, 1000, 1400, 1600],
+  [500, 1000],
+];
+const SEUIL_COLORS = ["#3B6D11","#BA7517","#E24B4A","#7F77DD","#185FA5"];
+const COURT = {
+  fr: ["Temporaires précoces","PP fertiles précoces","PP fertilité moyenne","PP peu fertiles"],
+  en: ["Early temporary","Fertile early perm.","Medium fertility perm.","Low fertility perm."],
+};
+
+// ---- État global ----
+let lang        = 'fr';
+let currentType = 1;
+let chartDJ     = null;
+let chartPluie  = null;
+let gData       = null;
+let currentLat  = 43.3833;
+let currentLon  = 0.9833;
+let currentLabel = "Auzas (31360)";
+
+// ---- Helpers ----
+function t() { return T[lang]; }
+function getSeuils(typeIdx) {
+  return SEUIL_VALUES[typeIdx].map((dj, i) => ({
+    dj,
+    stade:   t().seuils[typeIdx][i].stade,
+    pratique:t().seuils[typeIdx][i].pratique,
+    color:   SEUIL_COLORS[i],
+  }));
+}
+
+// ---- Changement de langue ----
+function setLang(l) {
+  lang = l;
+  document.documentElement.lang = l;
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.textContent === l.toUpperCase()));
+  // Statiques
+  document.getElementById('lbl-location').textContent   = t().location;
+  document.getElementById('loc-btn').textContent        = t().search;
+  document.getElementById('loc-loading').textContent    = t().searching;
+  document.getElementById('methodbox').innerHTML        = t().methodbox;
+  document.getElementById('lbl-prairie-type').textContent = t().prairietype;
+  document.getElementById('lbl-cumul-dj').textContent   = t().cumulDJ;
+  document.getElementById('lbl-stade').textContent      = t().stade;
+  document.getElementById('lbl-prochain').textContent   = t().nextThreshold;
+  document.getElementById('lbl-precip').textContent     = t().precip;
+  document.getElementById('chart-dj-title').textContent = t().chartDJ;
+  document.getElementById('chart-rain-title').textContent = t().chartRain;
+  document.getElementById('lbl-rain-bars').textContent  = t().rainBars;
+  document.getElementById('lbl-rain-cum').textContent   = t().rainCum;
+  document.getElementById('lbl-rain-col').textContent   = t().rainCol;
+  document.getElementById('lbl-formula').textContent    = t().formula;
+  document.getElementById('lbl-meteo').textContent      = t().meteoWord;
+  document.getElementById('lbl-geocoding').textContent  = t().geocodingWord;
+  document.getElementById('loc-input').placeholder      = l === 'fr' ? "Commune, adresse, code postal…" : "Town, address, postcode…";
+  // Onglets prairies
+  const tabs = document.querySelectorAll('.prairie-tab');
+  tabs.forEach((tab, i) => {
+    const td = t().tabs[i];
+    tab.querySelector('.tab-name').textContent = td.name;
+    tab.querySelector('.ex').textContent       = td.ex;
+  });
+  // Titre page
+  if (gData) {
+    document.getElementById('page-title').textContent = `${t().title} — ${currentLabel}`;
+    const today = new Date();
+    const fmtDate = today.toLocaleDateString(l === 'fr' ? 'fr-FR' : 'en-GB', {day:'2-digit',month:'2-digit',year:'numeric'});
+    document.getElementById('subtitle').textContent = t().subtitle(gData.year, fmtDate);
+    document.getElementById('card-depuis').textContent = t().since(gData.year);
+    document.getElementById('pluie-7j').textContent = t().last7(gData.pluie7j.toFixed(1));
+    renderInterface(gData);
+  }
+}
+
+// ---- Sélecteur type de prairie ----
+function selectPrairie(idx) {
+  currentType = idx;
+  document.querySelectorAll('.prairie-tab').forEach((el,i) => el.classList.toggle('active', i===idx));
+  if (gData) renderInterface(gData);
+}
+
+// ---- Rendu interface ----
+function renderInterface(d) {
+  const {dates, cumArr, djArr, pluieArr, cumPluieArr, cumDJ, cumPluie, pluie7j, START_CUMUL, year} = d;
+  const seuils = getSeuils(currentType);
+  const court  = COURT[lang][currentType];
+
+  document.getElementById('total-dj').textContent    = cumDJ.toFixed(1) + ' °C·' + (lang==='fr'?'j':'d');
+  document.getElementById('total-pluie').textContent = cumPluie.toFixed(0) + ' mm';
+  document.getElementById('pluie-7j').textContent    = t().last7(pluie7j.toFixed(1));
+
+  let stadeIdx = -1;
+  seuils.forEach((s,i) => { if (cumDJ >= s.dj) stadeIdx = i; });
+
+  document.getElementById('stade-actuel').innerHTML = stadeIdx === -1
+    ? `<span style="font-size:12px;color:#5f5e5a">${t().below.replace('\n','<br>')}</span>`
+    : `<span style="color:${seuils[stadeIdx].color}">${seuils[stadeIdx].stade}</span>`;
+
+  const next = seuils[stadeIdx+1];
+  document.getElementById('prochain-seuil').innerHTML = next
+    ? `<span style="color:${next.color}">${next.stade}</span><br><span style="font-size:11px;font-weight:400;color:#5f5e5a">${t().in((next.dj-cumDJ).toFixed(1))}</span>`
+    : `<span style="font-size:12px;color:#3b6d11">${t().allDone}</span>`;
+
+  document.getElementById('seuils-header').textContent = t().seuilsHeader(court, year);
+
+  document.getElementById('seuils-rows').innerHTML = seuils.map(s => {
+    const ok = cumDJ >= s.dj;
+    return `<div class="seuil-row">
+      <div>
+        <span style="font-size:13px;font-weight:500;color:${s.color}">${s.stade}</span>
+        <span style="font-size:12px;color:#888;margin-left:8px">${s.dj} °C·${lang==='fr'?'j':'d'}</span>
+        <div style="font-size:12px;color:#5f5e5a;margin-top:2px">${s.pratique}</div>
+      </div>
+      <span class="badge ${ok?'badge-ok':'badge-wait'}">${ok ? t().reached : t().remaining((s.dj-cumDJ).toFixed(0))}</span>
+    </div>`;
+  }).join('');
+
+  const unit = lang==='fr' ? '°C·j' : '°C·d';
+  document.getElementById('legend-dj').innerHTML = [
+    `<span><span style="width:10px;height:10px;border-radius:2px;background:rgba(29,158,117,0.4);display:inline-block"></span>${t().djLeg}</span>`,
+    `<span><span style="width:22px;height:2px;background:#1D9E75;display:inline-block"></span>${t().cumLeg}</span>`,
+    ...seuils.map(s=>`<span><span style="width:18px;height:0;border-top:2px dashed ${s.color};display:inline-block"></span>${s.stade} (${s.dj})</span>`)
+  ].join('');
+
+  const labels   = dates.map(d => new Date(d).toLocaleDateString(lang==='fr'?'fr-FR':'en-GB',{day:'2-digit',month:'2-digit'}));
+  const maxCumul = Math.max(...cumArr.filter(v=>v!==null), Math.max(...seuils.map(s=>s.dj))) * 1.08;
+  const seuilDS  = seuils.map(s=>({
+    type:'line', label:s.stade,
+    data: dates.map(d => d>=START_CUMUL ? s.dj : null),
+    borderColor:s.color, borderWidth:1.5, borderDash:[6,4],
+    pointRadius:0, fill:false, yAxisID:'yCumul', order:3, spanGaps:false
+  }));
+
+  if (chartDJ) chartDJ.destroy();
+  chartDJ = new Chart(document.getElementById('chartDJ'), {
+    data: {
+      labels,
+      datasets:[
+        ...seuilDS,
+        {type:'line',label:t().cumLeg,data:cumArr,borderColor:'#1D9E75',backgroundColor:'rgba(29,158,117,0.07)',borderWidth:2.5,pointRadius:0,fill:true,yAxisID:'yCumul',tension:0.3,order:1,spanGaps:false},
+        {type:'bar', label:t().djLeg,data:djArr,backgroundColor:'rgba(29,158,117,0.35)',borderWidth:0,yAxisID:'yDJ',order:2}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{filter:c=>[t().cumLeg,t().djLeg].includes(c.dataset.label),
+          callbacks:{label:c=>t().djTip(c.dataset.label,(c.parsed.y??0).toFixed(1))}}
+      },
+      scales:{
+        x:{ticks:{color:'#5f5e5a',font:{size:10},autoSkip:true,maxTicksLimit:10,maxRotation:0},grid:{color:'rgba(0,0,0,0.06)'}},
+        yDJ:{type:'linear',position:'right',min:0,title:{display:true,text:t().djLeg,color:'#5f5e5a',font:{size:11}},ticks:{color:'#5f5e5a',font:{size:11}},grid:{display:false}},
+        yCumul:{type:'linear',position:'left',min:0,max:maxCumul,title:{display:true,text:`Cumul ${unit}`,color:'#5f5e5a',font:{size:11}},ticks:{color:'#5f5e5a',font:{size:11}},grid:{color:'rgba(0,0,0,0.06)'}}
+      }
+    }
+  });
+}
+
+// ---- Chargement météo ----
+async function loadAndRender(lat, lon, label) {
+  currentLat = lat; currentLon = lon; currentLabel = label;
+
+  document.getElementById('page-title').textContent = `${t().title} — ${label}`;
+  document.getElementById('error-box').style.display = 'none';
+  document.getElementById('table-body').innerHTML  = `<div style="padding:14px;color:#888;text-align:center;font-size:13px">${t().loading}</div>`;
+  document.getElementById('seuils-rows').innerHTML = `<div style="padding:14px;color:#888;text-align:center;font-size:13px">${t().loading}</div>`;
+
+  const today     = new Date();
+  const yesterday = new Date(today); yesterday.setDate(today.getDate()-1);
+  const toISO     = d => d.toISOString().slice(0,10);
+  const year        = today.getFullYear();
+  const START_FETCH = `${year}-01-01`;
+  const END_DATE    = toISO(yesterday);
+  const START_CUMUL       = `${year}-02-01`;
+  const START_CUMUL_PLUIE = `${year}-01-01`;
+
+  const fmtDate = today.toLocaleDateString(lang==='fr'?'fr-FR':'en-GB',{day:'2-digit',month:'2-digit',year:'numeric'});
+  document.getElementById('subtitle').textContent  = t().subtitle(year, fmtDate);
+  document.getElementById('card-depuis').textContent = t().since(year);
+
+  const meteoUrl = "https://historical-forecast-api.open-meteo.com/v1/forecast"
+    + `?latitude=${lat}&longitude=${lon}`
+    + `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum`
+    + `&start_date=${START_FETCH}&end_date=${END_DATE}`
+    + `&timezone=Europe%2FParis`;
+
+  let raw;
+  try {
+    const r = await fetch(meteoUrl);
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    raw = await r.json();
+  } catch(e) {
+    const eb = document.getElementById('error-box');
+    eb.style.display = 'block';
+    eb.textContent = t().netError + e.message;
+    document.getElementById('table-body').innerHTML  = `<div style="padding:14px;color:#888;text-align:center">${t().unavailable}</div>`;
+    document.getElementById('seuils-rows').innerHTML = `<div style="padding:14px;color:#888;text-align:center">—</div>`;
+    return;
+  }
+
+  const usedLat   = raw.latitude  ?? lat;
+  const usedLon   = raw.longitude ?? lon;
+  const elevation = raw.elevation ?? '—';
+  document.getElementById('loc-coords').textContent = t().coordLabel(usedLat.toFixed(4), usedLon.toFixed(4));
+  document.getElementById('loc-station').innerHTML  = t().stationLabel(elevation);
+
+  const dates     = raw.daily.time;
+  const tmaxArr   = raw.daily.temperature_2m_max;
+  const tminArr   = raw.daily.temperature_2m_min;
+  const precipArr = raw.daily.precipitation_sum;
+  const n = dates.length;
+
+  const djArr=[],cumArr=[],pluieArr=[],cumPluieArr=[];
+  let cumDJ=0, cumPluie=0, pluie7j=0;
+  const rows=[];
+
+  for (let i=0;i<n;i++) {
+    const tmax  = tmaxArr[i]   ?? 0;
+    const tmin  = tminArr[i]   ?? 0;
+    const pluie = precipArr[i] ?? 0;
+    const tmoy  = (tmax+tmin)/2;
+    const dj    = Math.min(Math.max(tmoy,0),18);
+    const cumule      = dates[i] >= START_CUMUL;
+    const cumulePluie = dates[i] >= START_CUMUL_PLUIE;
+
+    if (cumule)      cumDJ    += dj;
+    if (cumulePluie) cumPluie += pluie;
+    if (i>=n-7) pluie7j+=pluie;
+
+    djArr.push(cumule            ? parseFloat(dj.toFixed(1))       : null);
+    cumArr.push(cumule           ? parseFloat(cumDJ.toFixed(1))    : null);
+    pluieArr.push(cumulePluie    ? parseFloat(pluie.toFixed(1))    : null);
+    cumPluieArr.push(cumulePluie ? parseFloat(cumPluie.toFixed(1)) : null);
+
+    if (cumule) {
+      const lbl = new Date(dates[i]).toLocaleDateString(lang==='fr'?'fr-FR':'en-GB',{day:'2-digit',month:'2-digit'});
+      const bg  = i%2===0?'#fff':'#f9f9f6';
+      rows.push(`<div class="table-row" style="background:${bg}">
+        <span class="col-muted">${lbl}</span>
+        <span class="ta-r">${tmax.toFixed(1)}</span>
+        <span class="ta-r">${tmin.toFixed(1)}</span>
+        <span class="ta-r">${tmoy.toFixed(1)}</span>
+        <span class="ta-r ${dj>0?'col-ok':'col-muted'}">${dj.toFixed(1)}</span>
+        <span class="ta-r" style="font-weight:500">${cumDJ.toFixed(1)}</span>
+        <span class="ta-r col-blue">${pluie.toFixed(1)}</span>
+      </div>`);
+    }
+  }
+
+  document.getElementById('status-msg').textContent = t().statusMsg(START_FETCH, END_DATE, START_CUMUL, n);
+  document.getElementById('table-body').innerHTML   = rows.join('');
+
+  const labels2     = dates.map(d=>new Date(d).toLocaleDateString(lang==='fr'?'fr-FR':'en-GB',{day:'2-digit',month:'2-digit'}));
+  const maxPluie    = Math.max(...pluieArr.filter(v=>v!==null),10)*1.2;
+  const maxCumPluie = Math.max(...cumPluieArr.filter(v=>v!==null),10)*1.1;
+
+  if (chartPluie) chartPluie.destroy();
+  chartPluie = new Chart(document.getElementById('chartPluie'), {
+    data:{
+      labels:labels2,
+      datasets:[
+        {type:'line',label:'cum',data:cumPluieArr,borderColor:'#185FA5',backgroundColor:'rgba(24,95,165,0.06)',borderWidth:2,pointRadius:0,fill:true,yAxisID:'yCumPluie',tension:0.3,order:1,spanGaps:false},
+        {type:'bar', label:'rain',data:pluieArr,backgroundColor:'rgba(24,95,165,0.5)',borderWidth:0,yAxisID:'yPluie',order:2}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>
+        c.dataset.label==='rain' ? t().pluieTip((c.parsed.y??0).toFixed(1)) : t().cumTip((c.parsed.y??0).toFixed(0))
+      }}},
+      scales:{
+        x:{ticks:{color:'#5f5e5a',font:{size:10},autoSkip:true,maxTicksLimit:10,maxRotation:0},grid:{color:'rgba(0,0,0,0.06)'}},
+        yPluie:{type:'linear',position:'right',min:0,max:maxPluie,title:{display:true,text:'mm/d',color:'#5f5e5a',font:{size:11}},ticks:{color:'#5f5e5a',font:{size:11}},grid:{display:false}},
+        yCumPluie:{type:'linear',position:'left',min:0,max:maxCumPluie,title:{display:true,text:'Cumul mm',color:'#5f5e5a',font:{size:11}},ticks:{color:'#5f5e5a',font:{size:11}},grid:{color:'rgba(0,0,0,0.06)'}}
+      }
+    }
+  });
+
+  gData = {dates,tmaxArr,tminArr,precipArr,djArr,cumArr,pluieArr,cumPluieArr,cumDJ,cumPluie,pluie7j,START_CUMUL,START_CUMUL_PLUIE,START_FETCH,END_DATE,year};
+  renderInterface(gData);
+}
+
+// ---- Géocodage Nominatim ----
+async function searchLocation() {
+  const q = document.getElementById('loc-input').value.trim();
+  if (!q) return;
+  document.getElementById('loc-btn').disabled = true;
+  document.getElementById('loc-loading').style.display = 'block';
+  document.getElementById('loc-suggestions').style.display = 'none';
+  document.getElementById('loc-suggestions').innerHTML = '';
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&limit=5&format=json&addressdetails=1`;
+    const r = await fetch(url, {headers:{'Accept-Language': lang}});
+    const results = await r.json();
+    document.getElementById('loc-loading').style.display = 'none';
+    document.getElementById('loc-btn').disabled = false;
+    if (!results.length) {
+      document.getElementById('loc-suggestions').style.display = 'block';
+      document.getElementById('loc-suggestions').innerHTML = `<div class="loc-sug-item" style="color:#888;cursor:default">${t().noResult}</div>`;
+      return;
+    }
+    if (results.length === 1) { applySuggestion(results[0]); return; }
+    const sugBox = document.getElementById('loc-suggestions');
+    sugBox.style.display = 'block';
+    sugBox.innerHTML = results.map((res,i) => {
+      const name = res.display_name.split(',').slice(0,3).join(', ');
+      return `<div class="loc-sug-item" onclick="applySuggestionIdx(${i})">${name}</div>`;
+    }).join('');
+    window._suggestions = results;
+  } catch(e) {
+    document.getElementById('loc-loading').style.display = 'none';
+    document.getElementById('loc-btn').disabled = false;
+    document.getElementById('loc-suggestions').style.display = 'block';
+    document.getElementById('loc-suggestions').innerHTML = `<div class="loc-sug-item" style="color:#791f1f;cursor:default">${t().geoError}${e.message}</div>`;
+  }
+}
+
+function applySuggestionIdx(i) { applySuggestion(window._suggestions[i]); }
+
+function applySuggestion(res) {
+  document.getElementById('loc-suggestions').style.display = 'none';
+  const lat   = parseFloat(res.lat);
+  const lon   = parseFloat(res.lon);
+  const addr  = res.address || {};
+  const ville = addr.village || addr.town || addr.city || addr.municipality || res.display_name.split(',')[0];
+  const cp    = addr.postcode || '';
+  const label = cp ? `${ville} (${cp})` : ville;
+  document.getElementById('loc-name').textContent    = label;
+  document.getElementById('loc-coords').textContent  = `${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E`;
+  document.getElementById('loc-station').textContent = t().meteoLoading;
+  document.getElementById('loc-input').value         = label;
+  loadAndRender(lat, lon, label);
+}
+
+// ---- Init ----
+document.getElementById('loc-name').textContent   = 'Auzas (31360)';
+document.getElementById('loc-coords').textContent = '43.3833°N, 0.9833°E';
+loadAndRender(43.3833, 0.9833, 'Auzas (31360)');
+</script>
+</body>
+</html>
